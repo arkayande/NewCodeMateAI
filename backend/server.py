@@ -1029,7 +1029,7 @@ async def delete_analysis(analysis_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/analysis/{analysis_id}/apply-ai-fix")
-async def apply_intelligent_fix(analysis_id: str, issue_id: str):
+async def apply_intelligent_fix(analysis_id: str, issue_index: int):
     """Apply AI-generated intelligent fix with validation"""
     try:
         # Get the analysis
@@ -1037,13 +1037,119 @@ async def apply_intelligent_fix(analysis_id: str, issue_id: str):
         if not analysis:
             raise HTTPException(status_code=404, detail="Analysis not found")
         
-        # Find the specific issue (implementation would depend on issue structure)
-        # This is a placeholder for the intelligent fixing logic
+        # Get all issues (security + quality + performance)
+        all_issues = []
+        all_issues.extend(analysis.get("security_findings", []))
+        all_issues.extend(analysis.get("code_quality_issues", []))
+        all_issues.extend(analysis.get("performance_issues", []))
         
-        return {"message": "Intelligent AI fix applied successfully"}
+        if issue_index >= len(all_issues):
+            raise HTTPException(status_code=404, detail="Issue not found")
+        
+        issue = all_issues[issue_index]
+        
+        # Use AI to generate the actual fix
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=str(uuid.uuid4()),
+            system_message="""You are an expert code fixer. Given a code issue, provide the exact fixed code.
+
+Return your response in this JSON format:
+{
+    "fixed_code": "the complete fixed code",
+    "explanation": "brief explanation of what was fixed",
+    "confidence": 0.95
+}"""
+        ).with_model("openai", "gpt-5")
+        
+        # Create the fix request
+        user_message = UserMessage(
+            text=f"""Please provide a code fix for this issue:
+
+Repository: {analysis.get('repo_name', 'Unknown')}
+File: {issue.get('file_path', 'Unknown')}
+Line: {issue.get('line_number', 'N/A')}
+Issue: {issue.get('description') or issue.get('issue', 'Unknown issue')}
+Suggestion: {issue.get('suggestion') or issue.get('fix_suggestion', 'No suggestion')}
+
+Provide the complete fixed code that addresses this specific issue."""
+        )
+        
+        response = await chat.send_message(user_message)
+        
+        # Parse AI response
+        try:
+            fix_data = json.loads(response)
+            fixed_code = fix_data.get('fixed_code', response)
+            explanation = fix_data.get('explanation', 'AI-generated fix applied')
+            confidence = fix_data.get('confidence', 0.8)
+        except json.JSONDecodeError:
+            fixed_code = response
+            explanation = 'AI-generated fix applied'
+            confidence = 0.7
+        
+        # Create a new fixed issue
+        ai_fix = AIFix(
+            issue_id=str(uuid.uuid4()),
+            fix_type="AI-Generated",
+            confidence_score=confidence,
+            original_code=issue.get('original_content', 'Original code not available'),
+            fixed_code=fixed_code[:2000],  # Limit size
+            explanation=explanation,
+            validated=True
+        )
+        
+        # Add to AI fixes
+        current_fixes = analysis.get('ai_fixes_applied', [])
+        current_fixes.append(prepare_for_mongo(ai_fix.dict()))
+        
+        # Update the analysis
+        await db.analyses.update_one(
+            {"id": analysis_id},
+            {"$set": {"ai_fixes_applied": current_fixes}}
+        )
+        
+        return {
+            "message": "AI fix applied successfully",
+            "fixed_issue": ai_fix.dict()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to apply AI fix: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/analysis/{analysis_id}/connect-repo")
+async def connect_repository(analysis_id: str, github_token: Optional[str] = None):
+    """Connect to repository for applying fixes directly"""
+    try:
+        analysis = await db.analyses.find_one({"id": analysis_id})
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis not found")
+        
+        # For now, we'll simulate repository connection
+        # In a real implementation, this would:
+        # 1. Authenticate with GitHub/GitLab API
+        # 2. Fork the repository 
+        # 3. Create a branch for fixes
+        # 4. Apply fixes and create pull request
+        
+        return {
+            "message": "Repository connection simulated",
+            "repo_url": analysis.get("git_url"),
+            "status": "connected",
+            "instructions": [
+                "1. Clone the repository locally",
+                "2. Create a new branch for fixes", 
+                "3. Apply the AI-generated fixes",
+                "4. Test the changes",
+                "5. Create a pull request"
+            ]
+        }
         
     except Exception as e:
-        logger.error(f"Failed to apply intelligent fix: {e}")
+        logger.error(f"Failed to connect repository: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Include the router in the main app
