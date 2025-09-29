@@ -356,11 +356,12 @@ const Home = () => {
             <CardContent>
               {currentAnalysis.status === 'completed' ? (
                 <Tabs defaultValue="overview" className="w-full">
-                  <TabsList className="grid w-full grid-cols-6">
+                  <TabsList className="grid w-full grid-cols-7">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
                     <TabsTrigger value="security">Security</TabsTrigger>
                     <TabsTrigger value="performance">Performance</TabsTrigger>
                     <TabsTrigger value="quality">Quality</TabsTrigger>
+                    <TabsTrigger value="ai-fixes">AI Fixes</TabsTrigger>
                     <TabsTrigger value="architecture">Architecture</TabsTrigger>
                     <TabsTrigger value="execution">Execution</TabsTrigger>
                   </TabsList>
