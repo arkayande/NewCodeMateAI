@@ -306,14 +306,39 @@ const Home = () => {
                       currentAnalysis.fixes_applied.map((fix, idx) => (
                         <Card key={idx} className="border-l-4 border-l-green-500">
                           <CardContent className="pt-6">
-                            <div className="flex items-start justify-between">
+                            <div className="flex items-start justify-between mb-4">
                               <div className="flex-1">
-                                <div className="font-medium text-slate-800">{fix.file_path}</div>
-                                <p className="text-sm text-slate-700 mt-2">{fix.description}</p>
-                                <p className="text-sm text-green-600 mt-1">✓ {fix.suggestion}</p>
+                                <div className="font-medium text-slate-800 mb-1">{fix.file_path}</div>
+                                {fix.line_number && (
+                                  <div className="text-sm text-slate-500 mb-2">Line {fix.line_number}</div>
+                                )}
+                                <p className="text-sm text-slate-700 mb-2">{fix.description}</p>
+                                <p className="text-sm text-green-600 mb-3">✓ {fix.suggestion}</p>
                               </div>
                               <Badge className="ml-2 bg-green-500 text-white">Fixed</Badge>
                             </div>
+                            
+                            {fix.original_content && fix.fixed_content && (
+                              <div className="space-y-3">
+                                <Separator />
+                                <div>
+                                  <div className="text-sm font-medium text-red-600 mb-2">Before:</div>
+                                  <div className="bg-red-50 border border-red-200 rounded p-3">
+                                    <code className="text-sm text-red-800 whitespace-pre-wrap">
+                                      {fix.original_content}
+                                    </code>
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-green-600 mb-2">After:</div>
+                                  <div className="bg-green-50 border border-green-200 rounded p-3">
+                                    <code className="text-sm text-green-800 whitespace-pre-wrap">
+                                      {fix.fixed_content}
+                                    </code>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       ))
@@ -321,6 +346,7 @@ const Home = () => {
                       <div className="text-center py-8 text-slate-500">
                         <Code className="h-12 w-12 mx-auto mb-4" />
                         <p>No automatic fixes were applied.</p>
+                        <p className="text-sm mt-2">This repository had no auto-fixable issues detected.</p>
                       </div>
                     )}
                   </TabsContent>
