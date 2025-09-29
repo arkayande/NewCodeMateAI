@@ -7,7 +7,7 @@ import { Input } from './components/ui/input';
 import { Badge } from './components/ui/badge';
 import { Separator } from './components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import { AlertCircle, CheckCircle2, Clock, GitBranch, Shield, Bug, Code, Zap } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, GitBranch, Shield, Bug, Code, Zap, Trash2, X } from 'lucide-react';
 import { useToast } from './hooks/use-toast';
 import { Toaster } from './components/ui/toaster';
 import './App.css';
