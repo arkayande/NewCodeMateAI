@@ -643,10 +643,51 @@ async def run_comprehensive_analysis(analysis_id: str, git_url: str, repo_name: 
             try:
                 # Clone the repository
                 logger.info(f"Cloning repository: {git_url}")
-                Repo.clone_from(git_url, repo_path)
-            except GitCommandError as e:
-                logger.error(f"Failed to clone repository: {e}")
-                raise Exception(f"Failed to clone repository: {str(e)}")
+                # Use requests to download repository as zip instead of git clone
+                import requests
+                
+                if "github.com" in git_url:
+                    # Convert GitHub URL to archive download
+                    repo_url_parts = git_url.replace("https://github.com/", "").replace(".git", "")
+                    zip_url = f"https://github.com/{repo_url_parts}/archive/refs/heads/main.zip"
+                    
+                    try:
+                        response = requests.get(zip_url, timeout=30)
+                        if response.status_code == 404:
+                            # Try master branch instead
+                            zip_url = f"https://github.com/{repo_url_parts}/archive/refs/heads/master.zip"
+                            response = requests.get(zip_url, timeout=30)
+                        
+                        if response.status_code == 200:
+                            # Extract zip file
+                            import zipfile
+                            import io
+                            
+                            with zipfile.ZipFile(io.BytesIO(response.content)) as zip_ref:
+                                zip_ref.extractall(temp_dir)
+                            
+                            # Find the extracted directory (usually repo-name-branch)
+                            extracted_dirs = [d for d in Path(temp_dir).iterdir() if d.is_dir()]
+                            if extracted_dirs:
+                                # Move contents to expected repo_path
+                                extracted_dir = extracted_dirs[0]
+                                if extracted_dir != repo_path:
+                                    extracted_dir.rename(repo_path)
+                                    
+                            logger.info(f"Successfully downloaded repository archive: {git_url}")
+                        else:
+                            raise Exception(f"Could not download repository archive: HTTP {response.status_code}")
+                            
+                    except Exception as e:
+                        logger.error(f"Archive download failed: {e}")
+                        raise Exception(f"Could not download repository: {str(e)}")
+                else:
+                    # For non-GitHub repos, we can't easily download without git
+                    raise Exception(f"Repository analysis requires Git installation for non-GitHub repositories: {git_url}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to get repository: {e}")
+                raise Exception(f"Failed to access repository: {str(e)}")
             
             # Perform real analysis
             analysis_results = await perform_real_analysis(repo_path, repo_name)
