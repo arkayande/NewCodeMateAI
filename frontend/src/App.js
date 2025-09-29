@@ -227,9 +227,20 @@ const Home = () => {
                   {getStatusIcon(currentAnalysis.status)}
                   Current Analysis: {currentAnalysis.repo_name}
                 </div>
-                <Badge variant="secondary" className="capitalize">
-                  {currentAnalysis.status}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="capitalize">
+                    {currentAnalysis.status}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCurrentAnalysis(null)}
+                    className="h-6 w-6 p-0"
+                    data-testid="close-current-analysis"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardTitle>
               <CardDescription>
                 {currentAnalysis.git_url}
