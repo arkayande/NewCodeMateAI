@@ -22,6 +22,32 @@ const Home = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  const deleteAnalysis = async (analysisId, repoName) => {
+    try {
+      await axios.delete(`${API}/analysis/${analysisId}`);
+      
+      // Remove from local state
+      setAnalyses(prev => prev.filter(analysis => analysis.id !== analysisId));
+      
+      // Clear current analysis if it was the deleted one
+      if (currentAnalysis && currentAnalysis.id === analysisId) {
+        setCurrentAnalysis(null);
+      }
+      
+      toast({
+        title: 'Analysis Deleted',
+        description: `Successfully deleted analysis for ${repoName}`,
+      });
+    } catch (error) {
+      console.error('Failed to delete analysis:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete analysis. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const fetchAnalyses = async () => {
     try {
       const response = await axios.get(`${API}/analyses`);
