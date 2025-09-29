@@ -33,8 +33,15 @@ db = client[os.environ['DB_NAME']]
 # Initialize AI chat
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
-# Docker client
-docker_client = docker.from_env()
+# Docker client (with fallback for environments without Docker)
+try:
+    docker_client = docker.from_env()
+    DOCKER_AVAILABLE = True
+    logger.info("Docker client initialized successfully")
+except Exception as e:
+    logger.warning(f"Docker not available: {e}. Using mock analysis mode.")
+    docker_client = None
+    DOCKER_AVAILABLE = False
 
 # Create the main app without a prefix
 app = FastAPI()
