@@ -408,14 +408,25 @@ const Home = () => {
                           </div>
                         )}
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentAnalysis(analysis)}
-                        data-testid={`view-analysis-${analysis.id}`}
-                      >
-                        View
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentAnalysis(analysis)}
+                          data-testid={`view-analysis-${analysis.id}`}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => deleteAnalysis(analysis.id, analysis.repo_name)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          data-testid={`delete-analysis-${analysis.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
