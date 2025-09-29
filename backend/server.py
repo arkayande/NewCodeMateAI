@@ -541,7 +541,7 @@ class AIAnalysisEngine:
 - Deployment and DevOps practices
 
 Analyze code comprehensively and provide actionable insights for improvement."""
-        ).with_model("openai", "gpt-5")
+        ).with_model("anthropic", "claude-sonnet-4-20250514")
     
     async def analyze_with_ai(self, analysis_data: Dict, repo_info: Dict) -> Dict:
         """Use AI to provide deep analysis and insights"""
