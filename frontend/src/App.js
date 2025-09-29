@@ -44,6 +44,7 @@ const Home = () => {
   const [analyses, setAnalyses] = useState([]);
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [fixingIssues, setFixingIssues] = useState(new Set()); // Track which issues are being fixed
   const { toast } = useToast();
 
   const fetchAnalyses = async () => {
