@@ -447,6 +447,70 @@ async def analyze_repository_background(analysis_id: str, git_url: str, repo_nam
 async def root():
     return {"message": "CodeGuardian AI - Repository Analysis API"}
 
+@api_router.post("/demo/add-sample-issues/{analysis_id}")
+async def add_sample_issues(analysis_id: str):
+    """Add sample issues for testing AI Auto-Fix functionality"""
+    try:
+        # Create some realistic sample issues
+        sample_issues = [
+            {
+                "file_path": "app.py",
+                "line_number": 15,
+                "error_type": "Code Style",
+                "severity": "medium",
+                "description": "Line too long (87 > 79 characters)",
+                "suggestion": "Break long line into multiple lines for better readability",
+                "auto_fixable": True,
+                "original_content": "def process_data(data, config, options, additional_params, extra_settings):",
+                "fixed_content": None
+            },
+            {
+                "file_path": "utils.py", 
+                "line_number": 23,
+                "error_type": "Logic Error",
+                "severity": "high",
+                "description": "Potential division by zero error",
+                "suggestion": "Add check for zero denominator before division",
+                "auto_fixable": True,
+                "original_content": "result = total / count",
+                "fixed_content": None
+            },
+            {
+                "file_path": "config.py",
+                "line_number": 8,
+                "error_type": "Security",
+                "severity": "high", 
+                "description": "Hardcoded API key in source code",
+                "suggestion": "Move API key to environment variables",
+                "auto_fixable": True,
+                "original_content": 'API_KEY = "sk-1234567890abcdef"',
+                "fixed_content": None
+            },
+            {
+                "file_path": "main.py",
+                "line_number": 42,
+                "error_type": "Performance",
+                "severity": "medium",
+                "description": "Inefficient loop that could be optimized",
+                "suggestion": "Use list comprehension instead of explicit loop",
+                "auto_fixable": True,
+                "original_content": "results = []\nfor item in items:\n    if item.active:\n        results.append(item.name)",
+                "fixed_content": None
+            }
+        ]
+        
+        # Update the analysis with sample issues
+        await db.analyses.update_one(
+            {"id": analysis_id},
+            {"$set": {"issues_found": sample_issues}}
+        )
+        
+        return {"message": f"Added {len(sample_issues)} sample issues for testing"}
+        
+    except Exception as e:
+        logger.error(f"Failed to add sample issues: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @api_router.post("/analyze", response_model=AnalysisResult)
 async def start_analysis(request: RepoAnalysisRequest, background_tasks: BackgroundTasks):
     """Start repository analysis"""
