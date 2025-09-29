@@ -644,6 +644,57 @@ const Home = () => {
                     )}
                   </TabsContent>
                   
+                  <TabsContent value="ai-fixes" className="space-y-4">
+                    {currentAnalysis.ai_fixes_applied && currentAnalysis.ai_fixes_applied.length > 0 ? (
+                      currentAnalysis.ai_fixes_applied.map((fix, idx) => (
+                        <Card key={idx} className="border-l-4 border-l-green-500">
+                          <CardContent className="pt-6">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex-1">
+                                <div className="font-medium text-slate-800 mb-1">AI Fix Applied</div>
+                                <div className="text-sm text-slate-500 mb-2">
+                                  Confidence Score: {(fix.confidence_score * 100).toFixed(1)}%
+                                </div>
+                                <p className="text-sm text-slate-700 mb-2">{fix.explanation}</p>
+                              </div>
+                              <Badge className="ml-2 bg-green-500 text-white">
+                                {fix.validated ? 'Validated' : 'Pending'}
+                              </Badge>
+                            </div>
+                            
+                            {fix.original_code && fix.fixed_code && (
+                              <div className="space-y-3">
+                                <Separator />
+                                <div>
+                                  <div className="text-sm font-medium text-red-600 mb-2">Before:</div>
+                                  <div className="bg-red-50 border border-red-200 rounded p-3">
+                                    <code className="text-sm text-red-800 whitespace-pre-wrap">
+                                      {fix.original_code}
+                                    </code>
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-green-600 mb-2">After (AI Fixed):</div>
+                                  <div className="bg-green-50 border border-green-200 rounded p-3">
+                                    <code className="text-sm text-green-800 whitespace-pre-wrap">
+                                      {fix.fixed_code}
+                                    </code>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-slate-500">
+                        <Wand2 className="h-12 w-12 mx-auto mb-4" />
+                        <p>No AI fixes have been applied yet.</p>
+                        <p className="text-sm mt-2">Use the "AI Auto-Fix" buttons in other tabs to generate fixes.</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                  
                   <TabsContent value="architecture" className="space-y-4">
                     <Card>
                       <CardHeader>
