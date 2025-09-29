@@ -49,6 +49,63 @@ const Home = () => {
   const [fixingIssues, setFixingIssues] = useState(new Set()); // Track which issues are being fixed
   const { toast } = useToast();
 
+  const applyAiFix = async (analysisId, issueIndex) => {
+    const fixKey = `${analysisId}-${issueIndex}`;
+    setFixingIssues(prev => new Set([...prev, fixKey]));
+    
+    try {
+      const response = await axios.post(`${API}/analysis/${analysisId}/apply-ai-fix?issue_index=${issueIndex}`);
+      
+      toast({
+        title: 'AI Fix Applied',
+        description: 'The issue has been automatically fixed by AI',
+      });
+      
+      // Refresh the current analysis to show the new fix
+      const updatedAnalysis = await axios.get(`${API}/analysis/${analysisId}`);
+      setCurrentAnalysis(updatedAnalysis.data);
+      
+      // Also refresh the analyses list
+      fetchAnalyses();
+      
+    } catch (error) {
+      console.error('Failed to apply AI fix:', error);
+      toast({
+        title: 'Fix Failed',
+        description: 'Could not apply the AI fix. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setFixingIssues(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fixKey);
+        return newSet;
+      });
+    }
+  };
+
+  const connectRepository = async (analysisId) => {
+    try {
+      const response = await axios.post(`${API}/analysis/${analysisId}/connect-repo`);
+      
+      toast({
+        title: 'Repository Connection',
+        description: 'Repository connection instructions provided',
+      });
+      
+      // You could show a modal with the instructions here
+      console.log('Repository connection instructions:', response.data.instructions);
+      
+    } catch (error) {
+      console.error('Failed to connect repository:', error);
+      toast({
+        title: 'Connection Failed',
+        description: 'Could not connect to repository. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const fetchAnalyses = async () => {
     try {
       const response = await axios.get(`${API}/analyses`);
