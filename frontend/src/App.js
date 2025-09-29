@@ -29,7 +29,9 @@ import {
   Database,
   TestTube,
   Layers,
-  Activity
+  Activity,
+  Wand2,
+  GitPullRequest
 } from 'lucide-react';
 import { useToast } from './hooks/use-toast';
 import { Toaster } from './components/ui/toaster';
