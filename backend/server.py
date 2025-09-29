@@ -524,6 +524,94 @@ async def delete_analysis(analysis_id: str):
         logger.error(f"Failed to delete analysis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.post("/analysis/{analysis_id}/apply-ai-fix")
+async def apply_ai_fix(analysis_id: str, issue_index: int):
+    """Apply AI-generated fix for a specific issue"""
+    try:
+        # Get the analysis
+        analysis = await db.analyses.find_one({"id": analysis_id})
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis not found")
+        
+        # Get the specific issue
+        issues = analysis.get('issues_found', [])
+        if issue_index >= len(issues):
+            raise HTTPException(status_code=404, detail="Issue not found")
+        
+        issue = issues[issue_index]
+        
+        # Use AI to generate the actual fix
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=str(uuid.uuid4()),
+            system_message="""You are an expert code fixer. Given a code issue and suggestion, provide the exact fixed code.
+            
+Return your response in this JSON format:
+{
+    "fixed_code": "the complete fixed code",
+    "explanation": "brief explanation of what was fixed"
+}"""
+        ).with_model("openai", "gpt-5")
+        
+        # Create the fix request
+        user_message = UserMessage(
+            text=f"""Please provide a code fix for this issue:
+
+File: {issue['file_path']}
+Line: {issue.get('line_number', 'N/A')}
+Issue: {issue['description']}
+Suggestion: {issue['suggestion']}
+
+Current code context (if available): {issue.get('original_content', 'Not available')}
+
+Please provide the complete fixed code that addresses this specific issue."""
+        )
+        
+        response = await chat.send_message(user_message)
+        
+        # Parse AI response
+        try:
+            fix_data = json.loads(response)
+            fixed_code = fix_data.get('fixed_code', response)
+            explanation = fix_data.get('explanation', 'AI-generated fix applied')
+        except json.JSONDecodeError:
+            fixed_code = response
+            explanation = 'AI-generated fix applied'
+        
+        # Create a new fixed issue
+        fixed_issue = ErrorIssue(
+            file_path=issue['file_path'],
+            line_number=issue.get('line_number'),
+            error_type=f"AI-Fixed: {issue['error_type']}",
+            severity=issue['severity'],
+            description=f"Fixed: {issue['description']}",
+            suggestion=explanation,
+            auto_fixable=False,  # Already fixed
+            original_content=issue.get('original_content', 'Original code'),
+            fixed_content=fixed_code[:1000]  # Limit size
+        )
+        
+        # Add to fixes_applied
+        current_fixes = analysis.get('fixes_applied', [])
+        current_fixes.append(prepare_for_mongo(fixed_issue.dict()))
+        
+        # Update the analysis
+        await db.analyses.update_one(
+            {"id": analysis_id},
+            {"$set": {"fixes_applied": current_fixes}}
+        )
+        
+        return {
+            "message": "AI fix applied successfully",
+            "fixed_issue": fixed_issue.dict()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to apply AI fix: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Include the router in the main app
 app.include_router(api_router)
 
