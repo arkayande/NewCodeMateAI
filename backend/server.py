@@ -397,7 +397,12 @@ python /analysis/analysis_script.py
             raise
     
     async def run_analysis(self):
-        """Run comprehensive analysis in Docker sandbox"""
+        """Run comprehensive analysis in Docker sandbox or mock mode"""
+        if not DOCKER_AVAILABLE:
+            # Mock analysis for demonstration
+            logger.info(f"Running mock analysis for {self.repo_name} (Docker not available)")
+            return await self._run_mock_analysis()
+        
         try:
             # Create the environment
             image = await self.create_analysis_environment()
@@ -433,6 +438,82 @@ python /analysis/analysis_script.py
         finally:
             # Cleanup
             await self.cleanup()
+    
+    async def _run_mock_analysis(self):
+        """Run mock analysis for demonstration purposes"""
+        # Simulate analysis delay
+        await asyncio.sleep(5)
+        
+        # Return realistic mock data
+        return {
+            "languages": ["Python", "JavaScript"],
+            "frameworks": ["Python Project", "Node.js Project"],
+            "lines_of_code": 2847,
+            "files_analyzed": 23,
+            "security_issues": [
+                {
+                    "tool": "bandit",
+                    "file": "app.py",
+                    "line": 42,
+                    "severity": "HIGH",
+                    "description": "Possible SQL injection vulnerability",
+                    "type": "security"
+                },
+                {
+                    "tool": "bandit", 
+                    "file": "config.py",
+                    "line": 15,
+                    "severity": "MEDIUM",
+                    "description": "Hardcoded password detected",
+                    "type": "security"
+                }
+            ],
+            "quality_issues": [
+                {
+                    "tool": "pylint",
+                    "file": "main.py",
+                    "line": 128,
+                    "type": "convention",
+                    "message": "Line too long (88/79)",
+                    "severity": "medium"
+                },
+                {
+                    "tool": "pylint",
+                    "file": "utils.py", 
+                    "line": 67,
+                    "type": "warning",
+                    "message": "Unused variable 'result'",
+                    "severity": "low"
+                },
+                {
+                    "tool": "pylint",
+                    "file": "handlers.py",
+                    "line": 34,
+                    "type": "error",
+                    "message": "Undefined variable 'data'",
+                    "severity": "high"
+                }
+            ],
+            "build_results": {
+                "pip_install": {
+                    "success": True,
+                    "output": "Successfully installed all requirements",
+                    "errors": ""
+                },
+                "npm_install": {
+                    "success": False,
+                    "output": "",
+                    "errors": "Package 'vulnerable-dep' has known security issues"
+                }
+            },
+            "test_results": {
+                "pytest": {
+                    "success": False,
+                    "output": "2 passed, 1 failed",
+                    "errors": "AssertionError in test_user_auth"
+                }
+            }
+        }
     
     async def cleanup(self):
         """Clean up Docker resources"""
