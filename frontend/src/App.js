@@ -459,16 +459,28 @@ const Home = () => {
                         <CardHeader>
                           <CardTitle className="text-lg flex items-center gap-2">
                             <Target className="h-5 w-5" />
-                            Deployment Readiness
+                            Deployment & Repository
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <Badge className={`text-sm px-3 py-1 ${getDeploymentReadinessColor(currentAnalysis.deployment_readiness)}`}>
+                          <Badge className={`text-sm px-3 py-1 mb-3 ${getDeploymentReadinessColor(currentAnalysis.deployment_readiness)}`}>
                             {currentAnalysis.deployment_readiness || 'Unknown'}
                           </Badge>
-                          <div className="mt-2 text-sm text-slate-600">
+                          <div className="mt-2 text-sm text-slate-600 mb-3">
                             Analysis Duration: {currentAnalysis.analysis_duration ? `${currentAnalysis.analysis_duration.toFixed(1)}s` : 'N/A'}
                           </div>
+                          
+                          {/* Repository Connection Button */}
+                          <Button
+                            size="sm"
+                            onClick={() => connectRepository(currentAnalysis.id)}
+                            variant="outline"
+                            className="w-full"
+                            data-testid="connect-repo-button"
+                          >
+                            <GitPullRequest className="h-4 w-4 mr-2" />
+                            Connect Repository
+                          </Button>
                         </CardContent>
                       </Card>
                     </div>
