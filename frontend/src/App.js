@@ -566,25 +566,63 @@ const Home = () => {
                   
                   <TabsContent value="quality" className="space-y-4">
                     {currentAnalysis.code_quality_issues && currentAnalysis.code_quality_issues.length > 0 ? (
-                      currentAnalysis.code_quality_issues.map((issue, idx) => (
-                        <Card key={idx} className="border-l-4 border-l-blue-500">
-                          <CardContent className="pt-6">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="font-medium text-slate-800">{issue.file_path}</div>
-                                {issue.line_number && (
-                                  <div className="text-sm text-slate-500 mb-2">Line {issue.line_number}</div>
-                                )}
-                                <p className="text-sm text-slate-700 mb-2">{issue.issue}</p>
-                                <p className="text-sm text-blue-600">{issue.suggestion}</p>
+                      currentAnalysis.code_quality_issues.map((issue, idx) => {
+                        const globalIndex = (currentAnalysis.security_findings?.length || 0) + idx; // Quality issues after security
+                        const fixKey = `${currentAnalysis.id}-${globalIndex}`;
+                        const isFixing = fixingIssues.has(fixKey);
+                        
+                        return (
+                          <Card key={idx} className="border-l-4 border-l-blue-500">
+                            <CardContent className="pt-6">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="font-medium text-slate-800">{issue.file_path}</div>
+                                  {issue.line_number && (
+                                    <div className="text-sm text-slate-500 mb-2">Line {issue.line_number}</div>
+                                  )}
+                                  <p className="text-sm text-slate-700 mb-2">{issue.issue}</p>
+                                  <p className="text-sm text-blue-600 mb-3">{issue.suggestion}</p>
+                                  
+                                  {/* AI Auto-Fix Button for auto-fixable issues */}
+                                  {issue.auto_fixable && (
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => applyAiFix(currentAnalysis.id, globalIndex)}
+                                        disabled={isFixing}
+                                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                                        data-testid={`ai-fix-quality-${globalIndex}`}
+                                      >
+                                        {isFixing ? (
+                                          <>
+                                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                            Fixing...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Wand2 className="h-4 w-4 mr-2" />
+                                            AI Auto-Fix
+                                          </>
+                                        )}
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex items-start gap-2 ml-4">
+                                  <Badge className={`${issue.severity === 'high' ? 'bg-orange-500' : 'bg-blue-500'} text-white`}>
+                                    {issue.severity}
+                                  </Badge>
+                                  {issue.auto_fixable && (
+                                    <Badge variant="outline" className="text-green-600 border-green-600">
+                                      Auto-fixable
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
-                              <Badge className={`ml-2 ${issue.severity === 'high' ? 'bg-orange-500' : 'bg-blue-500'} text-white`}>
-                                {issue.severity}
-                              </Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))
+                            </CardContent>
+                          </Card>
+                        );
+                      })
                     ) : (
                       <div className="text-center py-8 text-slate-500">
                         <Code className="h-12 w-12 mx-auto mb-4 text-green-500" />
