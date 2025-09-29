@@ -7,7 +7,30 @@ import { Input } from './components/ui/input';
 import { Badge } from './components/ui/badge';
 import { Separator } from './components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import { AlertCircle, CheckCircle2, Clock, GitBranch, Shield, Bug, Code, Zap, Trash2, X, Wand2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
+import { Progress } from './components/ui/progress';
+import { 
+  AlertCircle, 
+  CheckCircle2, 
+  Clock, 
+  GitBranch, 
+  Shield, 
+  Bug, 
+  Code, 
+  Zap, 
+  Trash2, 
+  X,
+  Brain,
+  Server,
+  Target,
+  TrendingUp,
+  Lock,
+  Cpu,
+  Database,
+  TestTube,
+  Layers,
+  Activity
+} from 'lucide-react';
 import { useToast } from './hooks/use-toast';
 import { Toaster } from './components/ui/toaster';
 import './App.css';
@@ -17,20 +40,27 @@ const API = `${BACKEND_URL}/api`;
 
 const Home = () => {
   const [gitUrl, setGitUrl] = useState('');
+  const [analysisDepth, setAnalysisDepth] = useState('comprehensive');
   const [analyses, setAnalyses] = useState([]);
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [fixingIssues, setFixingIssues] = useState(new Set()); // Track which issues are being fixed
   const { toast } = useToast();
+
+  const fetchAnalyses = async () => {
+    try {
+      const response = await axios.get(`${API}/analyses`);
+      setAnalyses(response.data);
+    } catch (error) {
+      console.error('Failed to fetch analyses:', error);
+    }
+  };
 
   const deleteAnalysis = async (analysisId, repoName) => {
     try {
       await axios.delete(`${API}/analysis/${analysisId}`);
       
-      // Remove from local state
       setAnalyses(prev => prev.filter(analysis => analysis.id !== analysisId));
       
-      // Clear current analysis if it was the deleted one
       if (currentAnalysis && currentAnalysis.id === analysisId) {
         setCurrentAnalysis(null);
       }
@@ -49,50 +79,6 @@ const Home = () => {
     }
   };
 
-  const applyAiFix = async (analysisId, issueIndex) => {
-    const fixKey = `${analysisId}-${issueIndex}`;
-    setFixingIssues(prev => new Set([...prev, fixKey]));
-    
-    try {
-      const response = await axios.post(`${API}/analysis/${analysisId}/apply-ai-fix?issue_index=${issueIndex}`);
-      
-      toast({
-        title: 'AI Fix Applied',
-        description: 'The issue has been automatically fixed by AI',
-      });
-      
-      // Refresh the current analysis to show the new fix
-      const updatedAnalysis = await axios.get(`${API}/analysis/${analysisId}`);
-      setCurrentAnalysis(updatedAnalysis.data);
-      
-      // Also refresh the analyses list
-      fetchAnalyses();
-      
-    } catch (error) {
-      console.error('Failed to apply AI fix:', error);
-      toast({
-        title: 'Fix Failed',
-        description: 'Could not apply the AI fix. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setFixingIssues(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(fixKey);
-        return newSet;
-      });
-    }
-  };
-
-  const fetchAnalyses = async () => {
-    try {
-      const response = await axios.get(`${API}/analyses`);
-      setAnalyses(response.data);
-    } catch (error) {
-      console.error('Failed to fetch analyses:', error);
-    }
-  };
-
   const startAnalysis = async () => {
     if (!gitUrl.trim()) {
       toast({
@@ -107,6 +93,7 @@ const Home = () => {
     try {
       const response = await axios.post(`${API}/analyze`, {
         git_url: gitUrl.trim(),
+        analysis_depth: analysisDepth
       });
       
       setCurrentAnalysis(response.data);
@@ -114,8 +101,8 @@ const Home = () => {
       fetchAnalyses();
       
       toast({
-        title: 'Analysis Started',
-        description: 'Repository analysis has been initiated. Results will appear shortly.',
+        title: 'Advanced Analysis Started',
+        description: 'AI-powered comprehensive analysis initiated. This may take several minutes.',
       });
 
       // Poll for updates
@@ -133,7 +120,7 @@ const Home = () => {
   };
 
   const pollAnalysis = async (analysisId) => {
-    const maxAttempts = 30; // 5 minutes max
+    const maxAttempts = 60; // 10 minutes max
     let attempts = 0;
 
     const poll = async () => {
@@ -160,33 +147,33 @@ const Home = () => {
     poll();
   };
 
-  const getSeverityColor = (severity) => {
-    switch (severity) {
-      case 'critical': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-blue-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-      case 'analyzing': return <Clock className="h-4 w-4 text-blue-500" />;
+      case 'analyzing': return <Brain className="h-4 w-4 text-blue-500 animate-pulse" />;
       case 'failed': return <AlertCircle className="h-4 w-4 text-red-500" />;
       default: return <Clock className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const groupIssuesByType = (issues) => {
-    return issues.reduce((acc, issue) => {
-      if (!acc[issue.error_type]) {
-        acc[issue.error_type] = [];
-      }
-      acc[issue.error_type].push(issue);
-      return acc;
-    }, {});
+  const getRatingColor = (rating) => {
+    switch (rating?.toUpperCase()) {
+      case 'A': return 'text-green-600';
+      case 'B': return 'text-blue-600';
+      case 'C': return 'text-yellow-600';
+      case 'D': return 'text-orange-600';
+      case 'F': return 'text-red-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  const getDeploymentReadinessColor = (readiness) => {
+    switch (readiness) {
+      case 'ready': return 'text-green-600 bg-green-100';
+      case 'needs_work': return 'text-yellow-600 bg-yellow-100';
+      case 'not_ready': return 'text-red-600 bg-red-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
   };
 
   useEffect(() => {
@@ -199,15 +186,16 @@ const Home = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-3 mb-4">
-            <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl shadow-lg">
-              <Shield className="h-8 w-8 text-white" />
+            <div className="p-3 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl shadow-lg">
+              <Brain className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              CodeGuardian AI
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+              CodeGuardian AI Agent
             </h1>
           </div>
-          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Advanced AI-powered code analysis that detects conflicts, vulnerabilities, and deployment issues automatically
+          <p className="text-lg text-slate-600 max-w-3xl mx-auto">
+            Advanced AI-powered code analysis agent with Docker sandbox execution, deep security scanning, 
+            performance analysis, and intelligent auto-fixing capabilities
           </p>
         </div>
 
@@ -215,14 +203,14 @@ const Home = () => {
         <Card className="mb-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm" data-testid="analysis-input-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <GitBranch className="h-5 w-5" />
-              Analyze Repository
+              <Server className="h-5 w-5" />
+              Advanced Repository Analysis
             </CardTitle>
             <CardDescription>
-              Enter a Git repository URL to start comprehensive code analysis
+              Enter a Git repository URL for comprehensive AI-powered analysis with Docker sandbox execution
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="flex gap-4">
               <Input
                 placeholder="https://github.com/username/repository.git"
@@ -232,24 +220,44 @@ const Home = () => {
                 onKeyPress={(e) => e.key === 'Enter' && startAnalysis()}
                 data-testid="git-url-input"
               />
+              <Select value={analysisDepth} onValueChange={setAnalysisDepth}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="basic">Basic Analysis</SelectItem>
+                  <SelectItem value="standard">Standard Analysis</SelectItem>
+                  <SelectItem value="comprehensive">Comprehensive Analysis</SelectItem>
+                </SelectContent>
+              </Select>
               <Button 
                 onClick={startAnalysis} 
                 disabled={loading}
-                className="px-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                className="px-8 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                 data-testid="analyze-button"
               >
                 {loading ? (
                   <>
-                    <Clock className="h-4 w-4 mr-2 animate-spin" />
+                    <Brain className="h-4 w-4 mr-2 animate-pulse" />
                     Analyzing...
                   </>
                 ) : (
                   <>
                     <Zap className="h-4 w-4 mr-2" />
-                    Analyze
+                    Start AI Analysis
                   </>
                 )}
               </Button>
+            </div>
+            
+            {/* Analysis Depth Description */}
+            <div className="text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
+              <strong>Analysis Depths:</strong> 
+              <ul className="mt-1 space-y-1">
+                <li><strong>Basic:</strong> Code scanning, basic security checks</li>
+                <li><strong>Standard:</strong> + Dependencies, build testing, performance analysis</li>
+                <li><strong>Comprehensive:</strong> + AI architecture analysis, execution testing, advanced security</li>
+              </ul>
             </div>
           </CardContent>
         </Card>
@@ -266,6 +274,9 @@ const Home = () => {
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="capitalize">
                     {currentAnalysis.status}
+                  </Badge>
+                  <Badge variant="outline" className="capitalize">
+                    {currentAnalysis.analysis_depth}
                   </Badge>
                   <Button
                     variant="ghost"
@@ -285,164 +296,319 @@ const Home = () => {
             <CardContent>
               {currentAnalysis.status === 'completed' ? (
                 <Tabs defaultValue="overview" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4">
+                  <TabsList className="grid w-full grid-cols-6">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="issues">Issues</TabsTrigger>
-                    <TabsTrigger value="fixes">Auto-Fixes</TabsTrigger>
-                    <TabsTrigger value="summary">AI Summary</TabsTrigger>
+                    <TabsTrigger value="security">Security</TabsTrigger>
+                    <TabsTrigger value="performance">Performance</TabsTrigger>
+                    <TabsTrigger value="quality">Quality</TabsTrigger>
+                    <TabsTrigger value="architecture">Architecture</TabsTrigger>
+                    <TabsTrigger value="execution">Execution</TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="overview" className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <TabsContent value="overview" className="space-y-6">
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="text-center p-4 bg-slate-50 rounded-lg">
-                        <div className="text-2xl font-bold text-blue-600">{currentAnalysis.total_files_analyzed}</div>
+                        <div className="text-2xl font-bold text-blue-600">{currentAnalysis.total_files || 0}</div>
                         <div className="text-sm text-slate-600">Files Analyzed</div>
                       </div>
                       <div className="text-center p-4 bg-slate-50 rounded-lg">
-                        <div className="text-2xl font-bold text-orange-600">{currentAnalysis.issues_found?.length || 0}</div>
-                        <div className="text-sm text-slate-600">Issues Found</div>
+                        <div className="text-2xl font-bold text-purple-600">{currentAnalysis.lines_of_code || 0}</div>
+                        <div className="text-sm text-slate-600">Lines of Code</div>
                       </div>
                       <div className="text-center p-4 bg-slate-50 rounded-lg">
-                        <div className="text-2xl font-bold text-green-600">{currentAnalysis.fixes_applied?.length || 0}</div>
-                        <div className="text-sm text-slate-600">Auto-Fixes Applied</div>
+                        <div className="text-2xl font-bold text-orange-600">{currentAnalysis.security_findings?.length || 0}</div>
+                        <div className="text-sm text-slate-600">Security Issues</div>
                       </div>
+                      <div className="text-center p-4 bg-slate-50 rounded-lg">
+                        <div className="text-2xl font-bold text-green-600">{currentAnalysis.ai_fixes_applied?.length || 0}</div>
+                        <div className="text-sm text-slate-600">AI Fixes Applied</div>
+                      </div>
+                    </div>
+
+                    {/* AI Ratings */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card>
+                        <CardContent className="pt-6">
+                          <div className="flex items-center gap-3">
+                            <Shield className="h-8 w-8 text-red-500" />
+                            <div>
+                              <div className="text-sm text-slate-600">Security Rating</div>
+                              <div className={`text-2xl font-bold ${getRatingColor(currentAnalysis.security_rating)}`}>
+                                {currentAnalysis.security_rating || 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardContent className="pt-6">
+                          <div className="flex items-center gap-3">
+                            <Code className="h-8 w-8 text-blue-500" />
+                            <div>
+                              <div className="text-sm text-slate-600">Code Quality Rating</div>
+                              <div className={`text-2xl font-bold ${getRatingColor(currentAnalysis.code_quality_rating)}`}>
+                                {currentAnalysis.code_quality_rating || 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      <Card>
+                        <CardContent className="pt-6">
+                          <div className="flex items-center gap-3">
+                            <TrendingUp className="h-8 w-8 text-green-500" />
+                            <div>
+                              <div className="text-sm text-slate-600">Performance Rating</div>
+                              <div className={`text-2xl font-bold ${getRatingColor(currentAnalysis.performance_rating)}`}>
+                                {currentAnalysis.performance_rating || 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Technologies & Deployment Readiness */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <Layers className="h-5 w-5" />
+                            Technologies Detected
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            <div>
+                              <span className="font-medium">Languages: </span>
+                              {currentAnalysis.languages_detected?.join(', ') || 'None detected'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Frameworks: </span>
+                              {currentAnalysis.framework_detected?.join(', ') || 'None detected'}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <Target className="h-5 w-5" />
+                            Deployment Readiness
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <Badge className={`text-sm px-3 py-1 ${getDeploymentReadinessColor(currentAnalysis.deployment_readiness)}`}>
+                            {currentAnalysis.deployment_readiness || 'Unknown'}
+                          </Badge>
+                          <div className="mt-2 text-sm text-slate-600">
+                            Analysis Duration: {currentAnalysis.analysis_duration ? `${currentAnalysis.analysis_duration.toFixed(1)}s` : 'N/A'}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
                   </TabsContent>
                   
-                  <TabsContent value="issues" className="space-y-4">
-                    {currentAnalysis.issues_found && currentAnalysis.issues_found.length > 0 ? (
-                      Object.entries(groupIssuesByType(currentAnalysis.issues_found)).map(([type, issues]) => (
-                        <Card key={type} className="border-l-4 border-l-orange-500">
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                              <Bug className="h-5 w-5" />
-                              {type} ({issues.length})
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="space-y-3">
-                            {issues.map((issue, idx) => {
-                              const globalIssueIndex = currentAnalysis.issues_found.findIndex(i => i === issue);
-                              const fixKey = `${currentAnalysis.id}-${globalIssueIndex}`;
-                              const isFixing = fixingIssues.has(fixKey);
-                              
-                              return (
-                                <div key={idx} className="p-3 bg-slate-50 rounded-lg">
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                      <div className="font-medium text-slate-800">{issue.file_path}</div>
-                                      {issue.line_number && (
-                                        <div className="text-sm text-slate-500 mb-2">Line {issue.line_number}</div>
-                                      )}
-                                      <p className="text-sm text-slate-700 mb-2">{issue.description}</p>
-                                      <p className="text-sm text-blue-600 mb-3">{issue.suggestion}</p>
-                                      
-                                      {/* AI Auto-Fix Button */}
-                                      <Button
-                                        size="sm"
-                                        onClick={() => applyAiFix(currentAnalysis.id, globalIssueIndex)}
-                                        disabled={isFixing}
-                                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                                        data-testid={`ai-fix-${globalIssueIndex}`}
-                                      >
-                                        {isFixing ? (
-                                          <>
-                                            <Clock className="h-4 w-4 mr-2 animate-spin" />
-                                            Fixing...
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Wand2 className="h-4 w-4 mr-2" />
-                                            AI Auto-Fix
-                                          </>
-                                        )}
-                                      </Button>
-                                    </div>
-                                    <div className="flex items-start gap-2 ml-4">
-                                      <Badge className={`${getSeverityColor(issue.severity)} text-white`}>
-                                        {issue.severity}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </CardContent>
-                        </Card>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-slate-500">
-                        <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                        <p>No issues found! Your code looks great.</p>
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="fixes" className="space-y-4">
-                    {currentAnalysis.fixes_applied && currentAnalysis.fixes_applied.length > 0 ? (
-                      currentAnalysis.fixes_applied.map((fix, idx) => (
-                        <Card key={idx} className="border-l-4 border-l-green-500">
+                  <TabsContent value="security" className="space-y-4">
+                    {currentAnalysis.security_findings && currentAnalysis.security_findings.length > 0 ? (
+                      currentAnalysis.security_findings.map((finding, idx) => (
+                        <Card key={idx} className="border-l-4 border-l-red-500">
                           <CardContent className="pt-6">
-                            <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                <div className="font-medium text-slate-800 mb-1">{fix.file_path}</div>
-                                {fix.line_number && (
-                                  <div className="text-sm text-slate-500 mb-2">Line {fix.line_number}</div>
+                                <div className="font-medium text-slate-800">{finding.file_path}</div>
+                                {finding.line_number && (
+                                  <div className="text-sm text-slate-500 mb-2">Line {finding.line_number}</div>
                                 )}
-                                <p className="text-sm text-slate-700 mb-2">{fix.description}</p>
-                                <p className="text-sm text-green-600 mb-3">✓ {fix.suggestion}</p>
+                                <p className="text-sm text-slate-700 mb-2">{finding.description}</p>
+                                {finding.fix_suggestion && (
+                                  <p className="text-sm text-blue-600">{finding.fix_suggestion}</p>
+                                )}
                               </div>
-                              <Badge className="ml-2 bg-green-500 text-white">Fixed</Badge>
+                              <Badge className={`ml-2 ${finding.severity === 'critical' ? 'bg-red-600' : finding.severity === 'high' ? 'bg-orange-500' : 'bg-yellow-500'} text-white`}>
+                                {finding.severity}
+                              </Badge>
                             </div>
-                            
-                            {fix.original_content && fix.fixed_content && (
-                              <div className="space-y-3">
-                                <Separator />
-                                <div>
-                                  <div className="text-sm font-medium text-red-600 mb-2">Before:</div>
-                                  <div className="bg-red-50 border border-red-200 rounded p-3">
-                                    <code className="text-sm text-red-800 whitespace-pre-wrap">
-                                      {fix.original_content}
-                                    </code>
-                                  </div>
-                                </div>
-                                <div>
-                                  <div className="text-sm font-medium text-green-600 mb-2">After:</div>
-                                  <div className="bg-green-50 border border-green-200 rounded p-3">
-                                    <code className="text-sm text-green-800 whitespace-pre-wrap">
-                                      {fix.fixed_content}
-                                    </code>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
                           </CardContent>
                         </Card>
                       ))
                     ) : (
                       <div className="text-center py-8 text-slate-500">
-                        <Code className="h-12 w-12 mx-auto mb-4" />
-                        <p>No automatic fixes were applied.</p>
-                        <p className="text-sm mt-2">This repository had no auto-fixable issues detected.</p>
+                        <Shield className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                        <p>No security vulnerabilities detected!</p>
                       </div>
                     )}
                   </TabsContent>
                   
-                  <TabsContent value="summary" className="space-y-4">
+                  <TabsContent value="performance" className="space-y-4">
+                    {currentAnalysis.performance_issues && currentAnalysis.performance_issues.length > 0 ? (
+                      currentAnalysis.performance_issues.map((issue, idx) => (
+                        <Card key={idx} className="border-l-4 border-l-yellow-500">
+                          <CardContent className="pt-6">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="font-medium text-slate-800">{issue.file_path}</div>
+                                {issue.function_name && (
+                                  <div className="text-sm text-slate-500 mb-2">Function: {issue.function_name}</div>
+                                )}
+                                <p className="text-sm text-slate-700 mb-2">{issue.issue}</p>
+                                <p className="text-sm text-blue-600">{issue.optimization_suggestion}</p>
+                                {issue.estimated_improvement && (
+                                  <div className="text-sm text-green-600 mt-1">
+                                    Estimated improvement: {issue.estimated_improvement}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-slate-500">
+                        <TrendingUp className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                        <p>No performance issues detected!</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="quality" className="space-y-4">
+                    {currentAnalysis.code_quality_issues && currentAnalysis.code_quality_issues.length > 0 ? (
+                      currentAnalysis.code_quality_issues.map((issue, idx) => (
+                        <Card key={idx} className="border-l-4 border-l-blue-500">
+                          <CardContent className="pt-6">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="font-medium text-slate-800">{issue.file_path}</div>
+                                {issue.line_number && (
+                                  <div className="text-sm text-slate-500 mb-2">Line {issue.line_number}</div>
+                                )}
+                                <p className="text-sm text-slate-700 mb-2">{issue.issue}</p>
+                                <p className="text-sm text-blue-600">{issue.suggestion}</p>
+                              </div>
+                              <Badge className={`ml-2 ${issue.severity === 'high' ? 'bg-orange-500' : 'bg-blue-500'} text-white`}>
+                                {issue.severity}
+                              </Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-slate-500">
+                        <Code className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                        <p>No code quality issues detected!</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="architecture" className="space-y-4">
                     <Card>
-                      <CardContent className="pt-6">
-                        <p className="text-slate-700 leading-relaxed">
-                          {currentAnalysis.ai_summary || 'AI analysis summary is not available.'}
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Brain className="h-5 w-5" />
+                          AI Architecture Analysis
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                          {currentAnalysis.architecture_analysis || 'AI architecture analysis is not available.'}
                         </p>
                       </CardContent>
                     </Card>
+
+                    {currentAnalysis.recommendations && currentAnalysis.recommendations.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Target className="h-5 w-5" />
+                            AI Recommendations
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ul className="space-y-2">
+                            {currentAnalysis.recommendations.map((rec, idx) => (
+                              <li key={idx} className="flex items-start gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                <span className="text-sm text-slate-700">{rec}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="execution" className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <Activity className="h-5 w-5" />
+                            Build Results
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-2">
+                            {currentAnalysis.build_successful ? (
+                              <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-red-500" />
+                            )}
+                            <span className="font-medium">
+                              {currentAnalysis.build_successful ? 'Build Successful' : 'Build Failed'}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2">
+                            <TestTube className="h-5 w-5" />
+                            Test Execution
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-sm text-slate-600">
+                            {currentAnalysis.test_results?.length > 0 ? (
+                              <div>Tests executed: {currentAnalysis.test_results.length}</div>
+                            ) : (
+                              <div>No tests executed</div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {currentAnalysis.execution_logs && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Execution Logs</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <pre className="text-xs bg-slate-900 text-green-400 p-4 rounded overflow-auto max-h-60">
+                            {currentAnalysis.execution_logs}
+                          </pre>
+                        </CardContent>
+                      </Card>
+                    )}
                   </TabsContent>
                 </Tabs>
+              ) : currentAnalysis.status === 'analyzing' ? (
+                <div className="text-center py-8">
+                  <Brain className="h-12 w-12 mx-auto mb-4 text-purple-500 animate-pulse" />
+                  <p className="text-slate-600 mb-2">AI Agent is analyzing your repository...</p>
+                  <p className="text-sm text-slate-500">
+                    Docker sandbox execution in progress. This may take several minutes.
+                  </p>
+                </div>
               ) : (
                 <div className="text-center py-8">
-                  <Clock className="h-12 w-12 mx-auto mb-4 text-blue-500 animate-pulse" />
-                  <p className="text-slate-600">
-                    {currentAnalysis.status === 'analyzing' ? 'Analyzing your repository...' : 'Starting analysis...'}
-                  </p>
+                  <Clock className="h-12 w-12 mx-auto mb-4 text-blue-500" />
+                  <p className="text-slate-600">Initializing analysis...</p>
                 </div>
               )}
             </CardContent>
@@ -453,7 +619,7 @@ const Home = () => {
         <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader>
             <CardTitle>Analysis History</CardTitle>
-            <CardDescription>Previous repository analyses</CardDescription>
+            <CardDescription>Previous comprehensive repository analyses</CardDescription>
           </CardHeader>
           <CardContent>
             {analyses.length > 0 ? (
@@ -468,19 +634,30 @@ const Home = () => {
                           <Badge variant="secondary" className="capitalize text-xs">
                             {analysis.status}
                           </Badge>
+                          <Badge variant="outline" className="capitalize text-xs">
+                            {analysis.analysis_depth}
+                          </Badge>
                         </div>
                         <div className="text-sm text-slate-500 mb-2">{analysis.git_url}</div>
                         {analysis.status === 'completed' && (
                           <div className="flex gap-4 text-sm">
                             <span className="text-slate-600">
-                              {analysis.total_files_analyzed} files analyzed
+                              {analysis.total_files} files
                             </span>
-                            <span className="text-orange-600">
-                              {analysis.issues_found?.length || 0} issues
+                            <span className="text-red-600">
+                              {analysis.security_findings?.length || 0} security
+                            </span>
+                            <span className="text-blue-600">
+                              {analysis.code_quality_issues?.length || 0} quality
                             </span>
                             <span className="text-green-600">
-                              {analysis.fixes_applied?.length || 0} fixes
+                              {analysis.ai_fixes_applied?.length || 0} fixes
                             </span>
+                            {analysis.deployment_readiness && (
+                              <Badge className={`text-xs ${getDeploymentReadinessColor(analysis.deployment_readiness)}`}>
+                                {analysis.deployment_readiness}
+                              </Badge>
+                            )}
                           </div>
                         )}
                       </div>
@@ -509,7 +686,7 @@ const Home = () => {
               </div>
             ) : (
               <div className="text-center py-8 text-slate-500">
-                <GitBranch className="h-12 w-12 mx-auto mb-4" />
+                <Brain className="h-12 w-12 mx-auto mb-4" />
                 <p>No analyses yet. Start by analyzing your first repository!</p>
               </div>
             )}
