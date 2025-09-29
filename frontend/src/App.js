@@ -320,23 +320,52 @@ const Home = () => {
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-3">
-                            {issues.map((issue, idx) => (
-                              <div key={idx} className="p-3 bg-slate-50 rounded-lg">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <div className="font-medium text-slate-800">{issue.file_path}</div>
-                                    {issue.line_number && (
-                                      <div className="text-sm text-slate-500 mb-2">Line {issue.line_number}</div>
-                                    )}
-                                    <p className="text-sm text-slate-700 mb-2">{issue.description}</p>
-                                    <p className="text-sm text-blue-600">{issue.suggestion}</p>
+                            {issues.map((issue, idx) => {
+                              const globalIssueIndex = currentAnalysis.issues_found.findIndex(i => i === issue);
+                              const fixKey = `${currentAnalysis.id}-${globalIssueIndex}`;
+                              const isFixing = fixingIssues.has(fixKey);
+                              
+                              return (
+                                <div key={idx} className="p-3 bg-slate-50 rounded-lg">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1">
+                                      <div className="font-medium text-slate-800">{issue.file_path}</div>
+                                      {issue.line_number && (
+                                        <div className="text-sm text-slate-500 mb-2">Line {issue.line_number}</div>
+                                      )}
+                                      <p className="text-sm text-slate-700 mb-2">{issue.description}</p>
+                                      <p className="text-sm text-blue-600 mb-3">{issue.suggestion}</p>
+                                      
+                                      {/* AI Auto-Fix Button */}
+                                      <Button
+                                        size="sm"
+                                        onClick={() => applyAiFix(currentAnalysis.id, globalIssueIndex)}
+                                        disabled={isFixing}
+                                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                                        data-testid={`ai-fix-${globalIssueIndex}`}
+                                      >
+                                        {isFixing ? (
+                                          <>
+                                            <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                            Fixing...
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Wand2 className="h-4 w-4 mr-2" />
+                                            AI Auto-Fix
+                                          </>
+                                        )}
+                                      </Button>
+                                    </div>
+                                    <div className="flex items-start gap-2 ml-4">
+                                      <Badge className={`${getSeverityColor(issue.severity)} text-white`}>
+                                        {issue.severity}
+                                      </Badge>
+                                    </div>
                                   </div>
-                                  <Badge className={`ml-2 ${getSeverityColor(issue.severity)} text-white`}>
-                                    {issue.severity}
-                                  </Badge>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </CardContent>
                         </Card>
                       ))
