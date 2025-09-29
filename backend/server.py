@@ -33,6 +33,13 @@ db = client[os.environ['DB_NAME']]
 # Initialize AI chat
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Docker client (with fallback for environments without Docker)
 try:
     docker_client = docker.from_env()
