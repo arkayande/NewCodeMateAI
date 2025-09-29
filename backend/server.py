@@ -636,77 +636,100 @@ async def run_comprehensive_analysis(analysis_id: str, git_url: str, repo_name: 
         
         logger.info(f"Starting comprehensive analysis for {repo_name}")
         
-        # Create Docker sandbox and run analysis
-        sandbox = DockerSandbox(git_url, repo_name)
-        docker_results = await sandbox.run_analysis()
-        
-        if "error" in docker_results:
-            raise Exception(f"Docker analysis failed: {docker_results['error']}")
-        
-        # Initialize AI analysis engine
-        ai_engine = AIAnalysisEngine()
-        ai_results = await ai_engine.analyze_with_ai(docker_results, {"repo_name": repo_name})
-        
-        # Process and structure results
-        analysis_result = ComprehensiveAnalysisResult(
-            id=analysis_id,
-            git_url=git_url,
-            repo_name=repo_name,
-            analysis_depth=analysis_depth,
-            status="completed",
+        # Clone repository locally for real analysis
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo_path = Path(temp_dir) / repo_name
             
-            # Repository metrics
-            total_files=docker_results.get("files_analyzed", 0),
-            lines_of_code=docker_results.get("lines_of_code", 0),
-            languages_detected=docker_results.get("languages", []),
-            framework_detected=docker_results.get("frameworks", []),
+            try:
+                # Clone the repository
+                logger.info(f"Cloning repository: {git_url}")
+                Repo.clone_from(git_url, repo_path)
+            except GitCommandError as e:
+                logger.error(f"Failed to clone repository: {e}")
+                raise Exception(f"Failed to clone repository: {str(e)}")
             
-            # Security findings
-            security_findings=[
-                SecurityFinding(
-                    type=issue.get("type", "security"),
-                    severity=issue.get("severity", "medium"),
-                    file_path=issue.get("file", ""),
-                    line_number=issue.get("line"),
-                    description=issue.get("description", "")
-                ) for issue in docker_results.get("security_issues", [])
-            ],
+            # Perform real analysis
+            analysis_results = await perform_real_analysis(repo_path, repo_name)
             
-            # Code quality issues
-            code_quality_issues=[
-                CodeQualityIssue(
-                    type=issue.get("type", "quality"),
-                    file_path=issue.get("file", ""),
-                    line_number=issue.get("line"),
-                    severity=issue.get("severity", "medium"),
-                    issue=issue.get("message", ""),
-                    suggestion="Review and fix this issue"
-                ) for issue in docker_results.get("quality_issues", [])
-            ],
+            # Use AI to enhance the analysis
+            ai_engine = AIAnalysisEngine()
+            ai_results = await ai_engine.analyze_with_ai(analysis_results, {"repo_name": repo_name})
             
-            # Build and execution results
-            build_successful=docker_results.get("build_results", {}).get("pip_install", {}).get("success", False),
-            execution_logs=str(docker_results.get("build_results", {}))[:1000],
+            # Process and structure results
+            analysis_result = ComprehensiveAnalysisResult(
+                id=analysis_id,
+                git_url=git_url,
+                repo_name=repo_name,
+                analysis_depth=analysis_depth,
+                status="completed",
+                
+                # Repository metrics from real analysis
+                total_files=analysis_results.get("total_files", 0),
+                lines_of_code=analysis_results.get("lines_of_code", 0),
+                languages_detected=analysis_results.get("languages", []),
+                framework_detected=analysis_results.get("frameworks", []),
+                
+                # Real security findings
+                security_findings=[
+                    SecurityFinding(
+                        type=issue.get("type", "security"),
+                        severity=issue.get("severity", "medium"),
+                        file_path=issue.get("file_path", ""),
+                        line_number=issue.get("line_number"),
+                        description=issue.get("description", ""),
+                        fix_suggestion=issue.get("fix_suggestion", "")
+                    ) for issue in analysis_results.get("security_issues", [])
+                ],
+                
+                # Real code quality issues
+                code_quality_issues=[
+                    CodeQualityIssue(
+                        type=issue.get("type", "quality"),
+                        file_path=issue.get("file_path", ""),
+                        line_number=issue.get("line_number"),
+                        severity=issue.get("severity", "medium"),
+                        issue=issue.get("issue", ""),
+                        suggestion=issue.get("suggestion", ""),
+                        auto_fixable=issue.get("auto_fixable", False)
+                    ) for issue in analysis_results.get("quality_issues", [])
+                ],
+                
+                # Performance issues
+                performance_issues=[
+                    PerformanceIssue(
+                        type=issue.get("type", "performance"),
+                        file_path=issue.get("file_path", ""),
+                        function_name=issue.get("function_name"),
+                        issue=issue.get("issue", ""),
+                        impact=issue.get("impact", "medium"),
+                        optimization_suggestion=issue.get("optimization_suggestion", "")
+                    ) for issue in analysis_results.get("performance_issues", [])
+                ],
+                
+                # Build and execution results
+                build_successful=analysis_results.get("build_successful", False),
+                execution_logs=str(analysis_results.get("execution_logs", ""))[:1000],
+                runtime_errors=analysis_results.get("runtime_errors", []),
+                
+                # AI analysis results
+                ai_summary=ai_results.get("overall_assessment", "Analysis completed"),
+                deployment_readiness=ai_results.get("deployment_readiness", "needs_review"),
+                architecture_analysis=ai_results.get("architecture_analysis", "Architecture analysis completed"),
+                recommendations=ai_results.get("recommendations", []),
+                
+                # Completion info
+                completed_at=datetime.now(timezone.utc),
+                analysis_duration=time.time() - start_time
+            )
             
-            # AI analysis
-            ai_summary=ai_results.get("overall_assessment", "Analysis completed"),
-            deployment_readiness=ai_results.get("deployment_readiness", "needs_review"),
-            architecture_analysis=ai_results.get("architecture_analysis", "No architecture analysis available"),
-            recommendations=ai_results.get("recommendations", []),
+            # Store in database
+            result_dict = prepare_for_mongo(analysis_result.dict())
+            await db.analyses.update_one(
+                {"id": analysis_id},
+                {"$set": result_dict}
+            )
             
-            # Completion info
-            completed_at=datetime.now(timezone.utc),
-            analysis_duration=time.time() - start_time
-        )
-        
-        # Store in database
-        result_dict = prepare_for_mongo(analysis_result.dict())
-        await db.analyses.update_one(
-            {"id": analysis_id},
-            {"$set": result_dict}
-        )
-        
-        logger.info(f"Comprehensive analysis completed for {repo_name} in {time.time() - start_time:.2f}s")
+            logger.info(f"Real analysis completed for {repo_name} in {time.time() - start_time:.2f}s")
         
     except Exception as e:
         logger.error(f"Comprehensive analysis failed for {analysis_id}: {e}")
@@ -719,6 +742,207 @@ async def run_comprehensive_analysis(analysis_id: str, git_url: str, repo_name: 
                 "analysis_duration": time.time() - start_time
             }}
         )
+
+async def perform_real_analysis(repo_path: Path, repo_name: str) -> Dict:
+    """Perform real analysis on the cloned repository"""
+    results = {
+        "total_files": 0,
+        "lines_of_code": 0,
+        "languages": [],
+        "frameworks": [],
+        "security_issues": [],
+        "quality_issues": [],
+        "performance_issues": [],
+        "build_successful": False,
+        "execution_logs": "",
+        "runtime_errors": []
+    }
+    
+    try:
+        # Count files and detect languages
+        file_counts = {}
+        quality_issues = []
+        
+        for file_path in repo_path.rglob("*"):
+            if file_path.is_file():
+                results["total_files"] += 1
+                ext = file_path.suffix.lower()
+                file_counts[ext] = file_counts.get(ext, 0) + 1
+                
+                # Count lines of code
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        lines = f.readlines()
+                        results["lines_of_code"] += len(lines)
+                        
+                        # Basic quality analysis
+                        relative_path = str(file_path.relative_to(repo_path))
+                        
+                        if ext == '.py':
+                            # Python quality checks
+                            for i, line in enumerate(lines, 1):
+                                if len(line.strip()) > 100:
+                                    quality_issues.append({
+                                        "type": "style",
+                                        "file_path": relative_path,
+                                        "line_number": i,
+                                        "severity": "medium",
+                                        "issue": f"Line too long ({len(line.strip())} characters)",
+                                        "suggestion": "Break line into multiple lines",
+                                        "auto_fixable": True
+                                    })
+                                if line.strip().startswith('print('):
+                                    quality_issues.append({
+                                        "type": "quality",
+                                        "file_path": relative_path,
+                                        "line_number": i,
+                                        "severity": "low",
+                                        "issue": "Debug print statement found",
+                                        "suggestion": "Remove debug print or use logging",
+                                        "auto_fixable": True
+                                    })
+                                if 'password' in line.lower() and '=' in line:
+                                    quality_issues.append({
+                                        "type": "security",
+                                        "file_path": relative_path,
+                                        "line_number": i,
+                                        "severity": "high",
+                                        "issue": "Potential hardcoded password",
+                                        "suggestion": "Move sensitive data to environment variables",
+                                        "auto_fixable": False
+                                    })
+                        
+                        elif ext in ['.js', '.ts', '.jsx', '.tsx']:
+                            # JavaScript/TypeScript quality checks
+                            for i, line in enumerate(lines, 1):
+                                if 'console.log' in line:
+                                    quality_issues.append({
+                                        "type": "quality",
+                                        "file_path": relative_path,
+                                        "line_number": i,
+                                        "severity": "low",
+                                        "issue": "Debug console.log found",
+                                        "suggestion": "Remove debug console.log statements",
+                                        "auto_fixable": True
+                                    })
+                                if 'var ' in line and not line.strip().startswith('//'):
+                                    quality_issues.append({
+                                        "type": "style",
+                                        "file_path": relative_path,
+                                        "line_number": i,
+                                        "severity": "medium",
+                                        "issue": "Use of 'var' instead of 'let' or 'const'",
+                                        "suggestion": "Use 'let' or 'const' instead of 'var'",
+                                        "auto_fixable": True
+                                    })
+                except:
+                    continue
+        
+        # Determine languages based on file extensions
+        if '.py' in file_counts:
+            results["languages"].append("Python")
+        if any(ext in file_counts for ext in ['.js', '.ts', '.jsx', '.tsx']):
+            results["languages"].append("JavaScript/TypeScript")
+        if '.java' in file_counts:
+            results["languages"].append("Java")
+        if '.go' in file_counts:
+            results["languages"].append("Go")
+        if '.rb' in file_counts:
+            results["languages"].append("Ruby")
+        if '.php' in file_counts:
+            results["languages"].append("PHP")
+        
+        # Detect frameworks
+        if (repo_path / "requirements.txt").exists() or (repo_path / "setup.py").exists():
+            results["frameworks"].append("Python Project")
+        if (repo_path / "package.json").exists():
+            results["frameworks"].append("Node.js Project")
+        if (repo_path / "pom.xml").exists():
+            results["frameworks"].append("Maven Project")
+        if (repo_path / "Cargo.toml").exists():
+            results["frameworks"].append("Rust Project")
+        if (repo_path / "go.mod").exists():
+            results["frameworks"].append("Go Module")
+        
+        # Add quality issues to results
+        results["quality_issues"] = quality_issues[:20]  # Limit to first 20 issues
+        
+        # Security analysis
+        security_issues = []
+        
+        # Check for common security issues
+        for file_path in repo_path.rglob("*.py"):
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                    relative_path = str(file_path.relative_to(repo_path))
+                    
+                    # Check for SQL injection patterns
+                    if re.search(r'execute\s*\(\s*["\'].*%.*["\']', content):
+                        security_issues.append({
+                            "type": "security",
+                            "file_path": relative_path,
+                            "severity": "high",
+                            "description": "Potential SQL injection vulnerability",
+                            "fix_suggestion": "Use parameterized queries"
+                        })
+                    
+                    # Check for hardcoded secrets
+                    if re.search(r'(api_key|secret|password|token)\s*=\s*["\'][^"\']{10,}["\']', content, re.I):
+                        security_issues.append({
+                            "type": "security",
+                            "file_path": relative_path,
+                            "severity": "medium",
+                            "description": "Potential hardcoded secret",
+                            "fix_suggestion": "Use environment variables for secrets"
+                        })
+            except:
+                continue
+        
+        results["security_issues"] = security_issues[:10]  # Limit to first 10 issues
+        
+        # Try to run basic commands
+        try:
+            os.chdir(repo_path)
+            
+            # Try Python setup
+            if (repo_path / "requirements.txt").exists():
+                result = subprocess.run(
+                    ["python", "-m", "pip", "check"],
+                    capture_output=True, text=True, timeout=30
+                )
+                results["build_successful"] = result.returncode == 0
+                results["execution_logs"] += f"Pip check: {result.stdout}\n"
+                
+            # Try Node.js setup
+            if (repo_path / "package.json").exists():
+                result = subprocess.run(
+                    ["npm", "audit", "--json"],
+                    capture_output=True, text=True, timeout=30
+                )
+                if result.stdout:
+                    try:
+                        audit_data = json.loads(result.stdout)
+                        if audit_data.get("vulnerabilities", {}).get("high", 0) > 0:
+                            security_issues.append({
+                                "type": "dependency",
+                                "file_path": "package.json",
+                                "severity": "high",
+                                "description": f"High severity vulnerabilities in dependencies: {audit_data['vulnerabilities']['high']}",
+                                "fix_suggestion": "Run 'npm audit fix' to resolve vulnerabilities"
+                            })
+                    except:
+                        pass
+                        
+        except Exception as e:
+            results["runtime_errors"].append(str(e))
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Real analysis failed: {e}")
+        results["runtime_errors"].append(str(e))
+        return results
 
 # API Routes
 @api_router.get("/")
