@@ -1089,7 +1089,7 @@ Return your response in this JSON format:
     "explanation": "brief explanation of what was fixed",
     "confidence": 0.95
 }"""
-        ).with_model("openai", "gpt-5")
+        ).with_model("anthropic", "claude-sonnet-4-20250514")
         
         # Create the fix request
         user_message = UserMessage(
