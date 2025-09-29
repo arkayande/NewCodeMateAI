@@ -50,14 +50,10 @@ const Home = () => {
 
   const fetchAnalyses = async () => {
     try {
-      console.log('Fetching analyses from:', `${API}/analyses`);
       const response = await axios.get(`${API}/analyses`);
-      console.log('Analyses response:', response.data);
-      console.log('Number of analyses:', response.data.length);
       setAnalyses(response.data);
     } catch (error) {
       console.error('Failed to fetch analyses:', error);
-      console.error('Error details:', error.response?.data || error.message);
     }
   };
 
