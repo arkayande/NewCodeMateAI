@@ -110,14 +110,20 @@ async def run_linting_tools(repo_path: Path) -> List[ErrorIssue]:
                         if ':' in line:
                             parts = line.split(':')
                             if len(parts) >= 4:
+                                error_code = parts[3].strip().split()[0] if parts[3].strip() else "E999"
+                                description = parts[3].strip() if len(parts) > 3 else "Style issue"
+                                
+                                # Mark common style issues as auto-fixable
+                                is_auto_fixable = any(code in error_code for code in ['E302', 'E303', 'W291', 'W292', 'W293', 'E101', 'E111'])
+                                
                                 issues.append(ErrorIssue(
                                     file_path=parts[0],
                                     line_number=int(parts[1]) if parts[1].isdigit() else None,
                                     error_type="Style/Syntax",
                                     severity="medium",
-                                    description=parts[3].strip() if len(parts) > 3 else "Style issue",
+                                    description=description,
                                     suggestion="Fix code style according to PEP 8",
-                                    auto_fixable=True
+                                    auto_fixable=is_auto_fixable
                                 ))
             except Exception as e:
                 logger.warning(f"Flake8 failed: {e}")
