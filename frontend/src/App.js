@@ -475,27 +475,56 @@ const Home = () => {
                   
                   <TabsContent value="security" className="space-y-4">
                     {currentAnalysis.security_findings && currentAnalysis.security_findings.length > 0 ? (
-                      currentAnalysis.security_findings.map((finding, idx) => (
-                        <Card key={idx} className="border-l-4 border-l-red-500">
-                          <CardContent className="pt-6">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="font-medium text-slate-800">{finding.file_path}</div>
-                                {finding.line_number && (
-                                  <div className="text-sm text-slate-500 mb-2">Line {finding.line_number}</div>
-                                )}
-                                <p className="text-sm text-slate-700 mb-2">{finding.description}</p>
-                                {finding.fix_suggestion && (
-                                  <p className="text-sm text-blue-600">{finding.fix_suggestion}</p>
-                                )}
+                      currentAnalysis.security_findings.map((finding, idx) => {
+                        const globalIndex = idx; // Security findings start at index 0
+                        const fixKey = `${currentAnalysis.id}-${globalIndex}`;
+                        const isFixing = fixingIssues.has(fixKey);
+                        
+                        return (
+                          <Card key={idx} className="border-l-4 border-l-red-500">
+                            <CardContent className="pt-6">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="font-medium text-slate-800">{finding.file_path}</div>
+                                  {finding.line_number && (
+                                    <div className="text-sm text-slate-500 mb-2">Line {finding.line_number}</div>
+                                  )}
+                                  <p className="text-sm text-slate-700 mb-2">{finding.description}</p>
+                                  {finding.fix_suggestion && (
+                                    <p className="text-sm text-blue-600 mb-3">{finding.fix_suggestion}</p>
+                                  )}
+                                  
+                                  {/* AI Auto-Fix Button */}
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      onClick={() => applyAiFix(currentAnalysis.id, globalIndex)}
+                                      disabled={isFixing}
+                                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                                      data-testid={`ai-fix-security-${globalIndex}`}
+                                    >
+                                      {isFixing ? (
+                                        <>
+                                          <Clock className="h-4 w-4 mr-2 animate-spin" />
+                                          Fixing...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Wand2 className="h-4 w-4 mr-2" />
+                                          AI Auto-Fix
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                                <Badge className={`ml-2 ${finding.severity === 'critical' ? 'bg-red-600' : finding.severity === 'high' ? 'bg-orange-500' : 'bg-yellow-500'} text-white`}>
+                                  {finding.severity}
+                                </Badge>
                               </div>
-                              <Badge className={`ml-2 ${finding.severity === 'critical' ? 'bg-red-600' : finding.severity === 'high' ? 'bg-orange-500' : 'bg-yellow-500'} text-white`}>
-                                {finding.severity}
-                              </Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))
+                            </CardContent>
+                          </Card>
+                        );
+                      })
                     ) : (
                       <div className="text-center py-8 text-slate-500">
                         <Shield className="h-12 w-12 mx-auto mb-4 text-green-500" />
