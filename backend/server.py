@@ -867,39 +867,68 @@ async def perform_real_analysis(repo_path: Path, repo_name: str) -> Dict:
         # Add quality issues to results
         results["quality_issues"] = quality_issues[:20]  # Limit to first 20 issues
         
-        # Security analysis
+        # Security analysis with better logic to avoid false positives
         security_issues = []
         
-        # Check for common security issues
+        # Check for common security issues with smarter detection
         for file_path in repo_path.rglob("*.py"):
             try:
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
+                    lines = content.split('\n')
                     relative_path = str(file_path.relative_to(repo_path))
                     
-                    # Check for SQL injection patterns
-                    if re.search(r'execute\s*\(\s*["\'].*%.*["\']', content):
-                        security_issues.append({
-                            "type": "security",
-                            "file_path": relative_path,
-                            "severity": "high",
-                            "description": "Potential SQL injection vulnerability",
-                            "fix_suggestion": "Use parameterized queries"
-                        })
+                    # Skip test files and documentation
+                    if any(skip in relative_path.lower() for skip in ['test', 'example', 'doc', 'readme']):
+                        continue
                     
-                    # Check for hardcoded secrets
-                    if re.search(r'(api_key|secret|password|token)\s*=\s*["\'][^"\']{10,}["\']', content, re.I):
-                        security_issues.append({
-                            "type": "security",
-                            "file_path": relative_path,
-                            "severity": "medium",
-                            "description": "Potential hardcoded secret",
-                            "fix_suggestion": "Use environment variables for secrets"
-                        })
+                    for line_num, line in enumerate(lines, 1):
+                        line_lower = line.lower().strip()
+                        
+                        # Check for SQL injection patterns (avoid false positives)
+                        if (re.search(r'execute\s*\(\s*["\'].*%.*["\']', line) and 
+                            not any(safe in line_lower for safe in ['logging', 'print', 'format', 'test'])):
+                            security_issues.append({
+                                "type": "security",
+                                "file_path": relative_path,
+                                "line_number": line_num,
+                                "severity": "high",
+                                "description": "Potential SQL injection vulnerability detected",
+                                "fix_suggestion": "Use parameterized queries instead of string formatting"
+                            })
+                        
+                        # Check for hardcoded secrets (improved to avoid false positives)
+                        secret_pattern = r'(api_key|secret|password|token)\s*=\s*["\']([^"\']{15,})["\']'
+                        match = re.search(secret_pattern, line, re.I)
+                        if (match and 
+                            not any(false_positive in line_lower for false_positive in [
+                                'example', 'test', 'demo', 'placeholder', 'your_', 'enter_',
+                                'post', 'request', 'http', 'url', 'path', 'endpoint'
+                            ]) and
+                            len(match.group(2)) > 15):  # Only flag long strings
+                            security_issues.append({
+                                "type": "security", 
+                                "file_path": relative_path,
+                                "line_number": line_num,
+                                "severity": "medium",
+                                "description": f"Potential hardcoded {match.group(1)} detected",
+                                "fix_suggestion": "Move sensitive data to environment variables"
+                            })
+                        
+                        # Check for weak cryptography
+                        if any(weak in line_lower for weak in ['md5', 'sha1']) and 'import' in line_lower:
+                            security_issues.append({
+                                "type": "security",
+                                "file_path": relative_path, 
+                                "line_number": line_num,
+                                "severity": "medium",
+                                "description": "Weak cryptographic algorithm detected",
+                                "fix_suggestion": "Use stronger algorithms like SHA-256 or bcrypt"
+                            })
             except:
                 continue
         
-        results["security_issues"] = security_issues[:10]  # Limit to first 10 issues
+        results["security_issues"] = security_issues[:5]  # Limit to first 5 issues
         
         # Try to run basic commands
         try:
