@@ -517,6 +517,9 @@ python /analysis/analysis_script.py
     
     async def cleanup(self):
         """Clean up Docker resources"""
+        if not DOCKER_AVAILABLE:
+            return
+            
         try:
             # Remove the image
             docker_client.images.remove(self.image_name, force=True)
